@@ -115,7 +115,9 @@ str2float:
       mtc1 $t0, $f3
       cvt.s.w $f3, $f3 #convert integer to float
       mul.s $f0, $f0, $f1 # multiply current fraction by 10 since it is not after the dot
+      # probably should check for overflow here ?
       add.s $f0, $f0, $f3 # add the new digit to the fraction
+      # probably should check for overflow here ?
       j endif_after_dot
 
       if_after_dot:
@@ -199,7 +201,6 @@ multiple_minus_error:
   li $a3, 2        # print to stderr
   jal printstr
   j osexit
-
 multiple_dot_error:
   la $a0, multiple_dot_error_msg
   li $a3, 2        # print to stderr
@@ -208,9 +209,8 @@ multiple_dot_error:
 
 #expects float at f0 as argument
 print_float_parts:
-    addi    $sp, $sp, -8       # allocate space on stack
-    sw      $ra, 4($sp)        # save return address
-    sw      $t0, 0($sp)        # save t0
+    addi    $sp, $sp, -4       # allocate space on stack
+    sw      $ra, 0($sp)        # save return address
 
     mfc1    $t0, $f0           # move f0 to t0
     # Extract exponent (bits 23-30)
@@ -244,9 +244,8 @@ print_float_parts:
     move    $a0, $t2
     jal     print_hex
 
-    lw      $t0, 0($sp)        # restore t0
-    lw      $ra, 4($sp)        # restore return address
-    addi    $sp, $sp, 8        # deallocate stack space
+    lw      $ra, 0($sp)        # restore return address
+    addi    $sp, $sp, 4        # deallocate stack space
     jr      $ra                # return
 
 #contract: a0-> pointer hex string.
