@@ -10,6 +10,7 @@
   dot_one_float: .float 0.1
   minus_one_float: .float -1.0
   ten_float: .float 10.0
+  sign_msg: .asciiz "The sign of your number is: \n"
   exponent_msg: .asciiz "The exponent of your number is: \n"   # Message for exponent with newline
   fraction_msg: .asciiz "The fraction of your number is: \n"
   hex_digits:   .asciiz "0123456789abcdef"                  # hexadecimal characters
@@ -38,7 +39,6 @@ main:
   mov.s $f12 $f0
   mfc1 $a0, $f0
 
-  jal print_newline
   jal print_float_parts  # Jump and link to print_float_parts procedure
   j osexit
 
@@ -56,6 +56,11 @@ print_newline:
   jr $ra
 printstr:
   li $v0, 4
+  syscall
+  jr $ra
+
+printint:
+  li $v0, 1
   syscall
   jr $ra
 readstr:
@@ -203,34 +208,46 @@ multiple_dot_error:
 
 #expects float at f0 as argument
 print_float_parts:
-    mfc1    $t0, $f0           # Move f0 to t0
+    addi    $sp, $sp, -8       # allocate space on stack
+    sw      $ra, 4($sp)        # save return address
+    sw      $t0, 0($sp)        # save t0
+
+    mfc1    $t0, $f0           # move f0 to t0
     # Extract exponent (bits 23-30)
     srl     $t1, $t0, 23       # shift right by 23 bits
-    andi    $t1, $t1, 0xFF     # mask and get  bit exponent
-    
+    andi    $t1, $t1, 0xFF     # mask and get bit exponent
     andi    $t2, $t0, 0x7FFFFF # 0x7FFFFF  = 23 1s used for masking
-    li      $v0, 4
+
+    srl     $t3, $t0, 31       # shift right by 31 bits to get sign
+    andi    $t3, $t3, 0x1
+
+    la      $a0, sign_msg
+    jal     printstr
+
+    move    $a0, $t3
+    jal     printint
+    jal     print_newline
+
     la      $a0, exponent_msg
-    syscall
-    
-    # Print exponent in hexadecimal
+    jal     printstr
+
+    # print exponent in hexadecimal
     move    $a0, $t1
+    jal     print_hex
+    jal     print_newline
 
-    jal print_hex
-    jal print_newline
-    
-    # Print "The fraction of your number is: " followed by the fraction in hex
-    li      $v0, 4
+    # print "the fraction of your number is: " followed by the fraction in hex
     la      $a0, fraction_msg
-    syscall
-    
-    # Print fraction in hexadecimal
+    jal     printstr
+
+    # print fraction in hexadecimal
     move    $a0, $t2
+    jal     print_hex
 
-
-    jal print_hex
-
-    j osexit
+    lw      $t0, 0($sp)        # restore t0
+    lw      $ra, 4($sp)        # restore return address
+    addi    $sp, $sp, 8        # deallocate stack space
+    jr      $ra                # return
 
 #contract: a0-> pointer hex string.
 print_hex:
