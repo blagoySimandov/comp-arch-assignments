@@ -10,9 +10,9 @@
   dot_one_float: .float 0.1
   minus_one_float: .float -1.0
   ten_float: .float 10.0
-  exponent_msg: .asciiz "\nThe exponent of your number is: \n"   # Message for exponent with newline
-  fraction_msg: .asciiz "\nThe fraction of your number is: \n"
-  hex_digits:   .asciiz "0123456789ABCDEF"                  # Hexadecimal characters
+  exponent_msg: .asciiz "The exponent of your number is: \n"   # Message for exponent with newline
+  fraction_msg: .asciiz "The fraction of your number is: \n"
+  hex_digits:   .asciiz "0123456789abcdef"                  # hexadecimal characters
   hex_result:      .space 11   #  0x + 8 hex digits + null terminator
   newline:      .asciiz "\n"                                # Newline string
 .text
@@ -36,11 +36,9 @@ main:
     jal readstr
     jal str2float
   mov.s $f12 $f0
-  jal printfloat
-  jal print_newline
   mfc1 $a0, $f0
-  jal print_hex_syscall
 
+  jal print_newline
   jal print_float_parts  # Jump and link to print_float_parts procedure
   j osexit
 
@@ -56,17 +54,8 @@ print_newline:
   addi $sp, $sp, 4
 
   jr $ra
-#a0 argument
-print_hex_syscall:
-  li $v0, 34
-  syscall
-  jr $ra
 printstr:
   li $v0, 4
-  syscall
-  jr $ra
-printfloat:
-  li $v0, 2
   syscall
   jr $ra
 readstr:
@@ -215,7 +204,6 @@ multiple_dot_error:
 #expects float at f0 as argument
 print_float_parts:
     mfc1    $t0, $f0           # Move f0 to t0
-    # X YYYYYYYY ZZZZZZZZZZZZZZZZZZZZZZZZ
     # Extract exponent (bits 23-30)
     srl     $t1, $t0, 23       # shift right by 23 bits
     andi    $t1, $t1, 0xFF     # mask and get  bit exponent
@@ -228,8 +216,6 @@ print_float_parts:
     # Print exponent in hexadecimal
     move    $a0, $t1
 
-    jal print_hex_syscall
-    jal print_newline
     jal print_hex
     jal print_newline
     
@@ -240,9 +226,7 @@ print_float_parts:
     
     # Print fraction in hexadecimal
     move    $a0, $t2
-    jal print_hex_syscall
 
-    jal print_newline
 
     jal print_hex
 
@@ -251,7 +235,17 @@ print_float_parts:
 #contract: a0-> pointer hex string.
 print_hex:
   la $t2 hex_result #pointer to memory location where to store the hex output
+ #start with 0x 
+  li $t3, '0'
+  sb $t3, 0($t2)
+  li $t3, 'x'
+  sb $t3, 1($t2)
+
+  addi $t2 $t2 10 #start from the end coz big endian
   la $t4 hex_digits #pointer to sorted hex digits
+  li $t3 0x00 #load null
+  sb $t3 ($t2) # put null at the end
+  subi $t2 $t2 1 #decrement pointer
   move $t0 $a0
   li $t5 0
   print_hex_loop:
@@ -261,18 +255,13 @@ print_hex:
     lb $t3, 0($t4) #t3 will hold the ascii byte for the hex digit, Offseting by zero since the above instructions adds the offset
     sub $t4 $t4 $t1 # Return pointer to beggining of the string
     sb $t3 ($t2)
-    #increment hex_result pointer
-    addi $t2 $t2 1
-    addi $t5 $t5 1
-    srl $t0 $t0 4
+    #decrement hex_result pointer
+    subi $t2 $t2 1
+    addi $t5 $t5 1 #increment counter
+    srl $t0 $t0 4 #shift right to get the next hex digit
     bne $t5 8 print_hex_loop
   exit_print_hex_loop: #this label isnt used. its here for better readability
-    
-    addi $t2 $t2 1 
-    li $t3 0x00 #null 
-    sb $t3 ($t2) #null terminator
-    subi $t2 $t2 9 #return hex_str pointer to beggining
-  
+    subi $t2 $t2 1  # decrement hex pointer again so it catches the 0 at the start
 
     subi $sp, $sp, 4
     sw $ra, 0($sp)     # push $ra to the stack
