@@ -1,8 +1,8 @@
 .data
-  input_str: .space 100
   name_and_number: .asciiz "Blagoy Simandov 123776895"
   init_prompt_part_2: .asciiz " is implementing the bonus assignment\n"
-  user_prompt_for_number: .asciiz "Enter any real number (not only limited to xxx.yyy) including negative:"
+  user_prompt_for_number: .asciiz "Enter any real number (not only xxx.yyy) including negative:"
+  input_str: .space 100
   multiple_minus_error_msg: .asciiz "Error: More than one minus sign is not allowed."
   multiple_dot_error_msg: .asciiz "Error: More than one decimal point is not allowed."
   invalid_input_msg: .asciiz "Error: Invalid character encountered. Only digits, '.', and '-' are allowed."
@@ -10,7 +10,6 @@
   dot_one_float: .float 0.1
   minus_one_float: .float -1.0
   ten_float: .float 10.0
-  sign_msg: .asciiz "The sign of your number is: \n"
   exponent_msg: .asciiz "The exponent of your number is: \n"   # Message for exponent with newline
   fraction_msg: .asciiz "The fraction of your number is: \n"
   hex_digits:   .asciiz "0123456789abcdef"                  # hexadecimal characters
@@ -56,11 +55,6 @@ print_newline:
   jr $ra
 printstr:
   li $v0, 4
-  syscall
-  jr $ra
-
-printint:
-  li $v0, 1
   syscall
   jr $ra
 readstr:
@@ -115,9 +109,7 @@ str2float:
       mtc1 $t0, $f3
       cvt.s.w $f3, $f3 #convert integer to float
       mul.s $f0, $f0, $f1 # multiply current fraction by 10 since it is not after the dot
-      # probably should check for overflow here ?
       add.s $f0, $f0, $f3 # add the new digit to the fraction
-      # probably should check for overflow here ?
       j endif_after_dot
 
       if_after_dot:
@@ -201,6 +193,7 @@ multiple_minus_error:
   li $a3, 2        # print to stderr
   jal printstr
   j osexit
+
 multiple_dot_error:
   la $a0, multiple_dot_error_msg
   li $a3, 2        # print to stderr
@@ -209,46 +202,35 @@ multiple_dot_error:
 
 #expects float at f0 as argument
 print_float_parts:
-    addi    $sp, $sp, -4       # allocate space on stack
-    sw      $ra, 0($sp)        # save return address
-
-    mfc1    $t0, $f0           # move f0 to t0
+    mfc1    $t0, $f0           # Move f0 to t0
     # Extract exponent (bits 23-30)
     srl     $t1, $t0, 23       # shift right by 23 bits
-    andi    $t1, $t1, 0xFF     # mask and get bit exponent
+    andi    $t1, $t1, 0xFF     # mask and get  bit exponent
+    
     andi    $t2, $t0, 0x7FFFFF # 0x7FFFFF  = 23 1s used for masking
-
-    srl     $t3, $t0, 31       # shift right by 31 bits to get sign
-    andi    $t3, $t3, 0x1
-
-    la      $a0, sign_msg
-    jal     printstr
-
-    move    $a0, $t3
-    jal     printint
-    jal     print_newline
-
+    li      $v0, 4
     la      $a0, exponent_msg
-    jal     printstr
-
-    # print exponent in hexadecimal
+    syscall
+    
+    # Print exponent in hexadecimal
     move    $a0, $t1
-    jal     print_hex
-    jal     print_newline
 
-    # print "the fraction of your number is: " followed by the fraction in hex
+    jal print_hex
+    jal print_newline
+    
+    # Print "The fraction of your number is: " followed by the fraction in hex
+    li      $v0, 4
     la      $a0, fraction_msg
-    jal     printstr
-
-    # print fraction in hexadecimal
+    syscall
+    
+    # Print fraction in hexadecimal
     move    $a0, $t2
-    jal     print_hex
 
-    lw      $ra, 0($sp)        # restore return address
-    addi    $sp, $sp, 4        # deallocate stack space
-    jr      $ra                # return
 
-#contract: a0-> pointer hex string.
+    jal print_hex
+
+    j osexit
+
 print_hex:
   la $t2 hex_result #pointer to memory location where to store the hex output
  #start with 0x 
